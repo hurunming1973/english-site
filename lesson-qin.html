@@ -35,6 +35,14 @@
   .q.show .a{display:block}
   .q button{font-size:12.5px;padding:5px 12px;border-radius:8px;border:1px solid #cfd8e3;background:#fff;cursor:pointer}
 </style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f4e79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="背单词">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 </head>
 <body>
 <header>
@@ -181,6 +189,13 @@ document.getElementById('prev').onclick = prev;
 document.getElementById('say').onclick = function(){ say(plain(SLIDES[idx].en)); };
 
 render();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
 </script>
 </body>
 </html>
