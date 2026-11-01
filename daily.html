@@ -422,7 +422,13 @@ function bindChips(){
     c.addEventListener("click", function(e){
       if (e.target.tagName === "BUTTON") return;
       if (c.classList.contains("judged")) return;
+      var on = !c.classList.contains("rev");
       c.classList.toggle("rev");
+      if (on) {
+        var i = parseInt(c.getAttribute("data-i"), 10);
+        var x = WORDS.filter(function(y){ return y.i === i; })[0];
+        if (x) playClip(i, x.w);
+      }
     });
   });
   Array.prototype.forEach.call(document.querySelectorAll("[data-y]"), function(b){
@@ -517,6 +523,51 @@ function updateKPI(){
 
 /* 朗读 */
 var voices = [];
+var AUD = { idx: null, ctx: null, buf: {}, busy: {}, failed: {} };
+function audCtx(){
+  if (!AUD.ctx) { try { AUD.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+  if (AUD.ctx && AUD.ctx.state === "suspended") AUD.ctx.resume();
+  return AUD.ctx;
+}
+function bname(i){ var b = Math.ceil(i / 10); return "b" + (b < 10 ? "00" : (b < 100 ? "0" : "")) + b; }
+function loadIndex(){
+  if (AUD.idx) return Promise.resolve(AUD.idx);
+  return fetch("audio/index.json").then(function(r){ return r.json(); }).then(function(j){ AUD.idx = j; return j; });
+}
+function loadBatch(b){
+  if (AUD.buf[b]) return Promise.resolve(AUD.buf[b]);
+  if (AUD.busy[b]) return AUD.busy[b];
+  var c = audCtx();
+  if (!c) return Promise.reject(new Error("no ctx"));
+  AUD.busy[b] = fetch("audio/" + b + ".wav").then(function(r){
+    if (!r.ok) throw new Error("http " + r.status);
+    return r.arrayBuffer();
+  }).then(function(ab){
+    return new Promise(function(res, rej){ c.decodeAudioData(ab, res, rej); });
+  }).then(function(buf){ AUD.buf[b] = buf; AUD.busy[b] = null; return buf; })
+    .catch(function(e){ AUD.busy[b] = null; AUD.failed[b] = 1; throw e; });
+  return AUD.busy[b];
+}
+function playClip(i, text){
+  var b = bname(i);
+  if (AUD.failed[b]) { say(text, 0.85); return; }
+  loadIndex().then(function(j){
+    var list = j[b] || [];
+    var off = null;
+    for (var k = 0; k < list.length; k++) if (list[k].i === i) { off = list[k]; break; }
+    if (!off) throw new Error("no offset");
+    return loadBatch(b).then(function(buf){
+      var c = audCtx();
+      var src = c.createBufferSource();
+      src.buffer = buf;
+      src.connect(c.destination);
+      if (window.__curSrc) { try { window.__curSrc.stop(); } catch(e){} }
+      window.__curSrc = src;
+      src.start(0, off.start, off.dur);
+    });
+  }).catch(function(){ say(text, 0.85); });
+}
+
 function loadV(){ voices = (window.speechSynthesis && window.speechSynthesis.getVoices()) || []; }
 if (window.speechSynthesis){ loadV(); window.speechSynthesis.onvoiceschanged = loadV; setTimeout(loadV, 400); }
 function say(t, rate, cb){
@@ -531,12 +582,15 @@ function say(t, rate, cb){
 document.addEventListener("click", function(e){
   var b = e.target.closest ? e.target.closest("[data-read]") : null;
   if (!b) return;
-  var ws = batchWords(+b.getAttribute("data-read")), i = 0;
-  if (!ws || !window.speechSynthesis) return;
+  var ws = batchWords(+b.getAttribute("data-read"));
+  if (!ws || !ws.length) return;
   window.speechSynthesis.cancel();
+  var k = 0;
   (function next(){
-    if (i >= ws.length) return;
-    say(ws[i++].w, function(){ setTimeout(next, 220); });
+    if (k >= ws.length) return;
+    var x = ws[k++];
+    playClip(x.i, x.w);
+    setTimeout(next, 1150);
   })();
 });
 
