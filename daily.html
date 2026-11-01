@@ -70,6 +70,19 @@
   .story p{margin:0;font-size:15px;line-height:1.95}
   .story b{color:#1f4e79;background:#eef4fb;border-radius:3px;padding:0 2px;cursor:pointer;font-weight:600}
   .story b:active{background:#d8e7f8}
+  #shadow{position:fixed;inset:0;background:#fff;z-index:999;display:none;flex-direction:column;padding:16px}
+  #shadow.on{display:flex}
+  #shadow .top{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#6b7280}
+  #shadow .close{border:0;background:#f3f6fa;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+  #shadow .prev{margin-top:26px;font-size:14px;color:#9aa3af;line-height:1.7;min-height:44px}
+  #shadow .cur{margin-top:14px;font-size:24px;line-height:1.75;font-weight:600;color:#20242b}
+  #shadow .cur b{color:#1f4e79;background:#eef4fb;border-radius:4px;padding:0 3px;cursor:pointer}
+  #shadow .cn{margin-top:12px;font-size:13.5px;color:#6b7280}
+  #shadow .bar2{margin-top:auto;display:flex;gap:10px}
+  #shadow .bar2 button{flex:1;padding:14px 0;font-size:15px;border-radius:12px}
+  #shadow .bar2 button.main{background:#1f4e79;color:#fff;border-color:#1f4e79}
+  #shadow .prog{height:4px;background:#eef1f6;border-radius:99px;margin-top:10px;overflow:hidden}
+  #shadow .prog i{display:block;height:100%;background:#2e75b6}
   .badlist{background:#fff;border:1px solid #f0c7c2;border-radius:12px;padding:12px 14px;margin-bottom:10px}
   .badlist .t{font-size:13px;color:#b3392b;font-weight:700}
 </style>
@@ -108,6 +121,22 @@
     <button id="btnRand">随机抽测 20 词</button>
     <button id="btnCopyBad">复制今天的生词</button>
   </div>
+  <div id="shadow">
+    <div class="top">
+      <span id="shCount">1 / 1</span>
+      <button class="close" id="shClose">退出跟读</button>
+    </div>
+    <div class="prog"><i id="shBar" style="width:0%"></i></div>
+    <div class="prev" id="shPrev"></div>
+    <div class="cur" id="shCur"></div>
+    <div class="cn" id="shCn"></div>
+    <div class="bar2">
+      <button id="shPrevBtn">‹ 上一句</button>
+      <button id="shAgain">🔊 再听</button>
+      <button class="main" id="shNext">下一句 ›</button>
+    </div>
+  </div>
+
   <div class="note" style="text-align:center;margin-top:14px">
     用法：先自己回忆 → 点词看答案 → 老实点 ✓ 或 ✗。✗ 的会自动进上面的生词本。
   </div>
@@ -270,13 +299,58 @@ function cardStory(st){
   });
   var plain = st.text.replace(/\*\*/g, "");
   STORY_PLAIN = plain;
+  STORY_RAW = st.text;
+  SHADOW.idx = 0;
   return '<div class="story"><h3>' + esc(st.title) + '</h3>' +
     '<div class="meta2">' + esc(st.tag) + ' ｜ ' + plain.split(/\s+/).length + ' 词 · 点加粗的词单独听</div>' +
     '<p>' + body + '</p>' +
     '<div class="row"><button class="small" id="btnStory">🔊 整篇朗读</button>' +
-    '<button class="small" id="btnStorySlow">🐢 慢速朗读</button></div></div>';
+    '<button class="small" id="btnStorySlow">🐢 慢速朗读</button>' +
+    '<button class="small" id="btnShadow">🎧 跟读模式</button></div></div>';
 }
 var STORY_PLAIN = "";
+var STORY_RAW = "";
+var SHADOW = { list: [], idx: 0 };
+
+function splitSentences(raw){
+  var t = raw.replace(/\b([ap])\.m\./gi, function(_, x){ return x + "\u0001m\u0001"; })
+             .replace(/\bBC\./g, "BC\u0001")
+             .replace(/\bA\.D\./g, "A\u0001D\u0001");
+  var parts = t.match(/[^.!?]+[.!?]+["']?/g) || [t];
+  return parts.map(function(x){
+    return x.replace(/\u0001/g, ".").trim();
+  }).filter(function(x){ return x.length > 2; });
+}
+function stripBold(x){ return x.replace(/\*\*/g, ""); }
+function boldHTML(x){
+  return esc(x).replace(/\*\*([^*]+)\*\*/g, '<b data-sw="$1">$1</b>');
+}
+function openShadow(){
+  if (!STORY_RAW) return;
+  SHADOW.list = splitSentences(STORY_RAW);
+  SHADOW.idx = 0;
+  document.getElementById("shadow").classList.add("on");
+  renderShadow(true);
+}
+function closeShadow(){
+  document.getElementById("shadow").classList.remove("on");
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+function renderShadow(speak){
+  var n = SHADOW.list.length, i = SHADOW.idx;
+  document.getElementById("shCount").textContent = (i + 1) + " / " + n;
+  document.getElementById("shBar").style.width = Math.round((i + 1) / n * 100) + "%";
+  document.getElementById("shPrev").innerHTML = i > 0 ? esc(stripBold(SHADOW.list[i - 1])) : "";
+  var cur = document.getElementById("shCur");
+  cur.innerHTML = boldHTML(SHADOW.list[i]);
+  document.getElementById("shCn").textContent = "";
+  Array.prototype.forEach.call(cur.querySelectorAll("[data-sw]"), function(el){
+    el.addEventListener("click", function(){ say(el.getAttribute("data-sw")); });
+  });
+  document.getElementById("shNext").textContent = (i === n - 1) ? "完成 ✓" : "下一句 ›";
+  if (speak) say(stripBold(SHADOW.list[i]), 0.85);
+}
+
 
 function cardNew(n){
   var ws = batchWords(n), body;
@@ -311,6 +385,8 @@ function bindStory(){
     u.onend = u.onerror = function(){ if (b1){ b1.disabled = false; b1.textContent = "🔊 整篇朗读"; } };
     window.speechSynthesis.speak(u);
   }
+  var b3 = document.getElementById("btnShadow");
+  if (b3) b3.addEventListener("click", openShadow);
   if (b1) b1.addEventListener("click", function(){ read(0.92); });
   if (b2) b2.addEventListener("click", function(){ read(0.72); });
   Array.prototype.forEach.call(document.querySelectorAll("[data-sw]"), function(el){
@@ -430,10 +506,10 @@ function updateKPI(){
 var voices = [];
 function loadV(){ voices = (window.speechSynthesis && window.speechSynthesis.getVoices()) || []; }
 if (window.speechSynthesis){ loadV(); window.speechSynthesis.onvoiceschanged = loadV; setTimeout(loadV, 400); }
-function say(t, cb){
+function say(t, rate, cb){
   if (!window.speechSynthesis) return;
   var u = new SpeechSynthesisUtterance(t);
-  u.lang = "en-US"; u.rate = 0.85;
+  u.lang = "en-US"; u.rate = rate || 0.85;
   var v = voices.filter(function(x){ return (x.lang||"").toLowerCase().indexOf("en") === 0; })[0];
   if (v) u.voice = v;
   if (cb) u.onend = cb;
@@ -484,6 +560,18 @@ document.getElementById("btnRand").addEventListener("click", function(){
     pool.slice(0, 20).map(chipHTML).join("") + '</div></div>';
   bindChips();
 });
+document.getElementById("shClose").addEventListener("click", closeShadow);
+document.getElementById("shAgain").addEventListener("click", function(){
+  say(stripBold(SHADOW.list[SHADOW.idx]), 0.85);
+});
+document.getElementById("shPrevBtn").addEventListener("click", function(){
+  if (SHADOW.idx > 0) { SHADOW.idx--; renderShadow(true); }
+});
+document.getElementById("shNext").addEventListener("click", function(){
+  if (SHADOW.idx < SHADOW.list.length - 1) { SHADOW.idx++; renderShadow(true); }
+  else { closeShadow(); }
+});
+
 document.getElementById("btnCopyBad").addEventListener("click", function(){
   var bad = todayIdx().filter(function(i){
     return (st.dir === "write") ? ((st.write||{})[i] === 0 || (st.write||{})[i] === 2) : (st.judge[i] === 0);
