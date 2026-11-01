@@ -17,6 +17,14 @@
   .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;
        background:#eef4fb;color:#2e75b6;margin-left:6px;vertical-align:middle}
 </style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f4e79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="背单词">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 </head>
 <body>
 <div class="wrap">
@@ -47,5 +55,12 @@
     <div class="d">78 周 / 每天 10 词 / 黄金记忆法复习排期</div>
   </a>
 </div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
 </body>
 </html>
