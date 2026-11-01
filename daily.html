@@ -303,6 +303,7 @@ function render(){
   bindChips();
   bindStory();
   renderBad(n);
+  prefetchToday();
   updateKPI();
 }
 
@@ -489,6 +490,18 @@ function judge(i, v){
   if (c){ c.classList.add("rev", "judged"); c.classList.toggle("ok", v === 1); c.classList.toggle("bad", v === 0); }
   renderBad(info.n);
   updateKPI();
+}
+
+var PREFETCHED = {};
+function prefetchToday(){
+  if (!window.AudioContext && !window.webkitAudioContext) return;
+  var bs = {};
+  try { todayIdx().forEach(function(i){ bs[bname(i)] = 1; }); } catch(e){ return; }
+  var list = Object.keys(bs).filter(function(b){ return !PREFETCHED[b] && !AUD.buf[b]; });
+  list.forEach(function(b, k){
+    PREFETCHED[b] = 1;
+    setTimeout(function(){ loadBatch(b).catch(function(){}); }, 400 + k * 900);
+  });
 }
 
 function todayIdx(){
