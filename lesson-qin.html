@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>微课 · 秦的统一（用已学英语词讲）</title>
+<style>
+  :root{--navy:#1f4e79;--ink:#20242b;--muted:#6b7280;--line:#e3e7ee;--bg:#f7f9fc}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.7 "Microsoft YaHei","PingFang SC",sans-serif;
+       display:flex;flex-direction:column;overflow:hidden}
+  header{padding:12px 16px 6px;display:flex;justify-content:space-between;align-items:center}
+  .tag{font-size:11.5px;padding:2px 9px;border-radius:99px;background:#eef4fb;color:#2e75b6}
+  .dots{display:flex;gap:5px}
+  .dots i{width:7px;height:7px;border-radius:99px;background:#d5dde8;display:block;transition:.2s}
+  .dots i.on{background:var(--navy);width:18px}
+  .stage{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 22px 8px;max-width:680px;margin:0 auto;width:100%}
+  .art{height:34vh;min-height:150px;display:flex;align-items:center;justify-content:center}
+  .art svg{max-height:100%;max-width:100%}
+  .en{font-size:22px;line-height:1.65;font-weight:600;margin-top:10px;text-align:center}
+  .en b{color:var(--navy);background:#e9f1fb;border-radius:4px;padding:0 3px}
+  .cn{margin-top:10px;font-size:13.5px;color:var(--muted);text-align:center}
+  nav{display:flex;gap:10px;padding:10px 16px 20px;max-width:680px;margin:0 auto;width:100%}
+  nav button{flex:1;padding:14px 0;font:inherit;font-size:15px;border-radius:12px;cursor:pointer;
+             border:1px solid #cfd8e3;background:#fff;color:#28323f}
+  nav button.main{background:var(--navy);border-color:var(--navy);color:#fff}
+  nav button:disabled{opacity:.4}
+  #quiz{display:none;padding:0 22px;max-width:680px;margin:0 auto;width:100%;overflow:auto}
+  #quiz.on{display:block}
+  .q{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+  .q p{margin:0 0 8px;font-weight:600}
+  .q .a{display:none;color:#0f7a44;font-size:14px;margin-top:6px}
+  .q.show .a{display:block}
+  .q button{font-size:12.5px;padding:5px 12px;border-radius:8px;border:1px solid #cfd8e3;background:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <span class="tag">Lesson 1 · The First Empire</span>
+  <span class="dots" id="dots"></span>
+</header>
+
+<div class="stage" id="stage">
+  <div class="art" id="art"></div>
+  <div class="en" id="en"></div>
+  <div class="cn" id="cn"></div>
+</div>
+
+<div id="quiz"></div>
+
+<nav>
+  <button id="prev">‹ 上一页</button>
+  <button id="say">🔊 朗读</button>
+  <button id="next" class="main">下一页 ›</button>
+</nav>
+
+<script>
+var V = '0 0 240 160';
+var SLIDES = [
+  {
+    art: '<svg viewBox="'+V+'"><g fill="#cfd9e6"><circle cx="58" cy="52" r="17"/><circle cx="106" cy="38" r="14"/><circle cx="156" cy="52" r="15"/><circle cx="76" cy="106" r="14"/><circle cx="126" cy="110" r="17"/><circle cx="180" cy="104" r="13"/><circle cx="206" cy="58" r="11"/></g></svg>',
+    en: 'More than two thousand years ago, China was <b>not</b> one country but <b>many</b>.',
+    cn: '两千多年前，中国不是一个国家，而是很多个。'
+  },
+  {
+    art: '<svg viewBox="'+V+'"><path d="M40 38 L198 122" stroke="#c0392b" stroke-width="7" stroke-linecap="round"/><path d="M198 38 L40 122" stroke="#1f4e79" stroke-width="7" stroke-linecap="round"/></svg>',
+    en: 'These states <b>fought</b> each other for hundreds of years.',
+    cn: '这些国家互相打了数百年。'
+  },
+  {
+    art: '<svg viewBox="'+V+'"><g fill="#cfd9e6"><circle cx="44" cy="44" r="12"/><circle cx="82" cy="32" r="11"/><circle cx="120" cy="44" r="12"/><circle cx="44" cy="94" r="11"/><circle cx="82" cy="106" r="12"/><circle cx="120" cy="94" r="11"/></g><path d="M140 70 h26" stroke="#9aa3af" stroke-width="4"/><circle cx="204" cy="70" r="33" fill="#1f4e79"/></svg>',
+    en: 'In 221 BC, one <b>powerful</b> king <b>took control of</b> the others.',
+    cn: '公元前 221 年，一个强大的国君控制了其余各国。'
+  },
+  {
+    art: '<svg viewBox="'+V+'"><path d="M68 112 L58 48 L100 80 L120 38 L140 80 L182 48 L172 112 Z" fill="#d4a017" stroke="#b8860b" stroke-width="4" stroke-linejoin="round"/><rect x="68" y="112" width="104" height="15" rx="3" fill="#b8860b"/></svg>',
+    en: 'He became the first <b>emperor</b> of China.',
+    cn: '他成了中国第一个皇帝。'
+  },
+  {
+    art: '<svg viewBox="'+V+'"><rect x="26" y="40" width="58" height="80" rx="6" fill="#e8eef6" stroke="#9aa3af"/><path d="M40 62 h30 M40 84 h30 M55 54 v56" stroke="#6b7280" stroke-width="4"/><path d="M100 80 h22" stroke="#9aa3af" stroke-width="4"/><rect x="152" y="40" width="58" height="80" rx="6" fill="#1f4e79"/><path d="M166 62 h30 M166 84 h30 M181 54 v56" stroke="#fff" stroke-width="4"/></svg>',
+    en: 'He wanted to <b>unify</b> the writing <b>system</b>, so people could read the same <b>characters</b>.',
+    cn: '他要统一文字，让所有人读同样的字。'
+  },
+  {
+    art: '<svg viewBox="'+V+'"><circle cx="66" cy="80" r="38" fill="#d4a017"/><rect x="54" y="68" width="24" height="24" fill="#f7f9fc"/><rect x="130" y="66" width="92" height="28" rx="4" fill="#cfd9e6"/><path d="M142 66 v11 M162 66 v15 M182 66 v11 M202 66 v15" stroke="#6b7280" stroke-width="3"/></svg>',
+    en: 'He set one <b>currency</b> and one way to <b>measure</b>.',
+    cn: '他统一了货币，也统一了度量衡。'
+  },
+  {
+    art: '<svg viewBox="'+V+'"><rect x="36" y="58" width="168" height="30" fill="#c7ccd3"/><path d="M36 58 h16 v-12 h16 v12 h16 v-12 h16 v12 h16 v-12 h16 v12 h16 v-12 h16 v12" fill="none" stroke="#a8aeb6" stroke-width="4"/><path d="M26 132 C 84 96, 156 96, 214 132" stroke="#8d6e63" stroke-width="6" fill="none" stroke-dasharray="10 8"/></svg>',
+    en: 'Roads and walls were built to <b>connect</b> the land.',
+    cn: '修路、筑墙，把这片土地连起来。'
+  },
+  {
+    art: '<svg viewBox="'+V+'"><path d="M40 92 C 28 52, 78 28, 120 34 C 172 42, 212 62, 206 96 C 200 132, 138 138, 98 132 C 58 126, 48 118, 40 92 Z" fill="#1f4e79" opacity="0.88"/></svg>',
+    en: 'That is how an <b>empire</b> began.',
+    cn: '一个帝国就这样开始了。'
+  }
+];
+
+var QUIZ = [
+  { q: '1. Was China one country more than two thousand years ago?',
+    a: 'No. It was many states that fought each other.' },
+  { q: '2. What did the first emperor want to unify?',
+    a: 'The writing system, the currency and the way to measure.' },
+  { q: '3. Why were roads and walls built?',
+    a: 'To connect the land.' }
+];
+
+var idx = 0, inQuiz = false;
+var voices = [];
+function loadV(){ voices = (window.speechSynthesis && window.speechSynthesis.getVoices()) || []; }
+if (window.speechSynthesis){ loadV(); window.speechSynthesis.onvoiceschanged = loadV; setTimeout(loadV, 400); }
+function say(text, rate){
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  var u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = rate || 0.88;
+  var v = voices.filter(function(x){ return (x.lang||'').toLowerCase().indexOf('en') === 0; })[0];
+  if (v) u.voice = v;
+  window.speechSynthesis.speak(u);
+}
+function plain(html){ return html.replace(/<[^>]+>/g, ''); }
+
+function dots(){
+  var d = document.getElementById('dots');
+  d.innerHTML = SLIDES.map(function(_, i){ return '<i class="' + (i === idx ? 'on' : '') + '"></i>'; }).join('');
+}
+function render(){
+  if (inQuiz) return;
+  var s = SLIDES[idx];
+  document.getElementById('art').innerHTML = s.art;
+  document.getElementById('en').innerHTML = s.en;
+  document.getElementById('cn').textContent = s.cn;
+  document.getElementById('prev').disabled = idx === 0;
+  document.getElementById('next').textContent = (idx === SLIDES.length - 1) ? '小测验 ›' : '下一页 ›';
+  dots();
+}
+function next(){
+  if (idx < SLIDES.length - 1){ idx++; render(); say(plain(SLIDES[idx].en)); }
+  else showQuiz();
+}
+function prev(){
+  if (inQuiz){ hideQuiz(); return; }
+  if (idx > 0){ idx--; render(); say(plain(SLIDES[idx].en)); }
+}
+function showQuiz(){
+  inQuiz = true;
+  document.getElementById('stage').style.display = 'none';
+  var q = document.getElementById('quiz');
+  q.classList.add('on');
+  q.innerHTML = '<h3 style="font-size:16px;margin:8px 0 12px">Check yourself · 三个问题</h3>' +
+    QUIZ.map(function(x, i){
+      return '<div class="q" id="q' + i + '"><p>' + x.q + '</p>' +
+        '<button onclick="this.parentNode.classList.add(\'show\')">看答案</button>' +
+        '<div class="a">' + x.a + '</div></div>';
+    }).join('') +
+    '<p style="font-size:12.5px;color:#6b7280;margin:14px 0 30px">用到的已学词：powerful · take control of · emperor · empire · unify · system · character · currency · measure · connect</p>';
+  document.getElementById('next').textContent = '重看一遍';
+  document.getElementById('prev').disabled = false;
+  document.getElementById('prev').textContent = '‹ 回到开头';
+  document.getElementById('next').onclick = function(){ hideQuiz(); idx = 0; render(); };
+  document.getElementById('prev').onclick = function(){ hideQuiz(); idx = 0; render(); };
+}
+function hideQuiz(){
+  inQuiz = false;
+  document.getElementById('stage').style.display = '';
+  document.getElementById('quiz').classList.remove('on');
+  document.getElementById('next').onclick = next;
+  document.getElementById('prev').onclick = prev;
+  document.getElementById('next').textContent = '下一页 ›';
+  document.getElementById('prev').textContent = '‹ 上一页';
+  render();
+}
+
+document.getElementById('next').onclick = next;
+document.getElementById('prev').onclick = prev;
+document.getElementById('say').onclick = function(){ say(plain(SLIDES[idx].en)); };
+
+render();
+</script>
+</body>
+</html>
