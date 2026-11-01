@@ -223,12 +223,11 @@ function writeHTML(x){
   else if (v===0) fb = '<span class="fb no">✗ · ' + esc(x.w) + '</span>';
   return '<span class="' + cls + '" data-i="' + x.i + '">' +
     '<span class="q">' + esc(firstCN(x.cn, 14)) + '</span>' +
-    '<span class="dual"><b class="' + (v === 1 ? "on" : "") + '">写</b>' +
-    '<b class="' + ((st.say && st.say[x.i] === 1) ? "on" : "") + '">读</b></span>' +
+
     (v === undefined
       ? '<input class="in" data-in="' + x.i + '" autocomplete="off" autocapitalize="off" ' +
         'autocorrect="off" spellcheck="false" placeholder="拼写">' +
-        '<button class="mic" data-mic="' + x.i + '" title="说出来">🎤</button>'
+        (SR ? '<button class="mic" data-mic="' + x.i + '" title="说话填词">🎤</button>' : '')
       : '') +
     fb + '</span>';
 }
@@ -459,13 +458,6 @@ function bindChips(){
     });
   });
 }
-function updateDual(chip, i){
-  var d = chip && chip.querySelector(".dual");
-  if (!d) return;
-  var w = (st.write || {})[i] === 1;
-  var r = (st.say || {})[i] === 1;
-  d.innerHTML = '<b class="' + (w ? "on" : "") + '">写</b><b class="' + (r ? "on" : "") + '">读</b>';
-}
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 function norm2(t){ return String(t||"").toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim(); }
 function bestMatch(alts, target){
@@ -481,7 +473,7 @@ function speakToFill(i, btn){
   if (!inp) return;
   var x = WORDS.filter(function(y){ return y.i === i; })[0];
   if (!x) return;
-  if (!SR) { recordFallback(i, btn, x); return; }
+  if (!SR) { alert("这个浏览器不支持语音输入（iPhone 的 Safari 目前不行），请直接打字。"); return; }
   var rec = new SR();
   rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 5;
   btn.classList.add("rec"); btn.textContent = "…";
@@ -494,53 +486,23 @@ function speakToFill(i, btn){
     finish();
     inp.value = heard;
     var chip = inp.closest(".chip");
-    if (chip && !chip.querySelector(".heard")) {
-      var h = document.createElement("span"); h.className = "heard"; h.textContent = "听到：" + heard;
-      chip.appendChild(h);
+    if (chip){
+      var h = chip.querySelector(".heard");
+      if (!h) { h = document.createElement("span"); h.className = "heard"; chip.appendChild(h); }
+      h.textContent = "听到：" + heard;
     }
-    checkWrite(i, heard, inp);
-    st.say = st.say || {};
-    st.say[i] = (norm2(heard) === norm2(x.w)) ? 1 : 0;
-    save(); updateDual(chip, i); updateSummary();
+    updateSummary();
+    setTimeout(function(){ checkWrite(i, heard, inp); }, 350);
   };
-  rec.onerror = function(){ finish(); recordFallback(i, btn, x); };
+  rec.onerror = function(ev){
+    finish();
+    var msg = (ev && ev.error === "not-allowed") ? "没有麦克风权限，请在浏览器设置里允许。" :
+              "语音识别连不上（国内多数网络到不了 Google 语音服务），请直接打字。";
+    alert(msg);
+  };
   rec.onend = finish;
-  try { rec.start(); } catch(e2){ finish(); recordFallback(i, btn, x); }
+  try { rec.start(); } catch(e2){ finish(); alert("语音输入启动失败，请直接打字。"); }
   setTimeout(finish, 8000);
-}
-function recordFallback(i, btn, x){
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    alert("这个浏览器不支持录音，请直接输入。"); return;
-  }
-  var chip = btn.closest(".chip");
-  btn.classList.add("rec"); btn.textContent = "●";
-  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-    var mr = new MediaRecorder(stream), chunks = [];
-    mr.ondataavailable = function(ev){ if (ev.data.size) chunks.push(ev.data); };
-    mr.onstop = function(){
-      stream.getTracks().forEach(function(t){ t.stop(); });
-      btn.classList.remove("rec"); btn.textContent = "🎤";
-      var blob = new Blob(chunks, {type:"audio/webm"});
-      var url = URL.createObjectURL(blob);
-      var old = chip.querySelector("audio"); if (old) old.remove();
-      var au = document.createElement("audio");
-      au.controls = true; au.src = url; au.style.cssText = "height:28px;margin-left:6px;vertical-align:middle";
-      chip.appendChild(au);
-      var tip = document.createElement("span");
-      tip.className = "heard"; tip.textContent = "回放对比：" + x.w;
-      chip.appendChild(tip);
-      var ok = document.createElement("button"); ok.className = "mic ok"; ok.textContent = "读对✓";
-      var no = document.createElement("button"); no.className = "mic no"; no.textContent = "读错✗";
-      var mark = function(v){ st.say = st.say || {}; st.say[i] = v; save();
-        ok.remove(); no.remove(); tip.textContent = "回放对比：" + x.w + (v ? " ✓" : " ✗");
-        updateDual(chip, i); updateSummary(); };
-      ok.onclick = function(e){ e.stopPropagation(); mark(1); };
-      no.onclick = function(e){ e.stopPropagation(); mark(0); };
-      chip.appendChild(ok); chip.appendChild(no);
-    };
-    mr.start();
-    setTimeout(function(){ mr.stop(); }, 2500);
-  }).catch(function(){ btn.classList.remove("rec"); btn.textContent = "🎤"; alert("没有麦克风权限。"); });
 }
 function checkWrite(i, typed, inp){
   var map = {}; WORDS.forEach(function(x){ map[x.i] = x; });
@@ -561,7 +523,6 @@ function checkWrite(i, typed, inp){
   chip.classList.add("judged");
   chip.removeChild(inp);
   chip.insertAdjacentHTML("beforeend", fb);
-  updateDual(chip, i);
   renderBad(info.n);
   updateSummary();
 }
@@ -578,14 +539,8 @@ function summaryText(){
 }
 function updateSummary(){
   var s = summaryText(), el = document.getElementById("note");
-  if (st.dir !== "write") return;
-  var sOk = 0, both = 0;
-  todayIdx().forEach(function(i){
-    if ((st.say || {})[i] === 1) sOk++;
-    if ((st.write || {})[i] === 1 && (st.say || {})[i] === 1) both++;
-  });
-  el.textContent = "默写 " + s.done + "/" + s.total + " ｜ 写对 " + s.ok + " ｜ 读对 " + sOk +
-    " ｜ 写读都对 " + both + " ｜ 差一点 " + s.near + " ｜ 错 " + s.bad;
+  if (st.dir !== "write") return;  el.textContent = "默写进度 " + s.done + "/" + s.total + " ｜ 全对 " + s.ok +
+    " ｜ 差一点 " + s.near + " ｜ 错 " + s.bad + (SR ? " ｜ 🎤 可语音输入" : "");
 }
 
 function judge(i, v){
