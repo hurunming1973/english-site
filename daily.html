@@ -66,6 +66,9 @@
   .chip .mic.rec{background:#fdecea;border-color:#f0c7c2;color:#b3392b;animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.45}}
   .chip .heard{font-size:11.5px;color:#9aa3af;margin-left:4px}
+  .chip .dual{font-size:11px;margin-left:5px;letter-spacing:2px;color:#c9d2dd}
+  .chip .dual b{font-weight:700}
+  .chip .dual .on{color:#0f9d58}
   .chip .fb{font-size:12px;color:#6b7280}
   .chip .fb.ok{color:#0f7a44} .chip .fb.no{color:#b3392b}
   .story{background:#fbfcfe;border:1px solid #dbe6f2;border-radius:12px;padding:13px 14px;margin-bottom:10px}
@@ -160,7 +163,7 @@ var PASS = [{"p": 1, "tag": "B001 + B002", "title": "The Exchange Day", "text": 
 var START = new Date(2026, 10, 2);
 var STUDY = 350, PER = 10;
 var KEY = "daily_v2";
-var st = { done: {}, judge: {}, dir: "e2c", mode: "group" };
+var st = { done: {}, judge: {}, say: {}, dir: "e2c", mode: "group" };
 try { var raw = localStorage.getItem(KEY); if (raw) { var o = JSON.parse(raw); for (var k in o) st[k] = o[k]; } } catch (e) {}
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} }
 
@@ -220,6 +223,8 @@ function writeHTML(x){
   else if (v===0) fb = '<span class="fb no">✗ · ' + esc(x.w) + '</span>';
   return '<span class="' + cls + '" data-i="' + x.i + '">' +
     '<span class="q">' + esc(firstCN(x.cn, 14)) + '</span>' +
+    '<span class="dual"><b class="' + (v === 1 ? "on" : "") + '">写</b>' +
+    '<b class="' + ((st.say && st.say[x.i] === 1) ? "on" : "") + '">读</b></span>' +
     (v === undefined
       ? '<input class="in" data-in="' + x.i + '" autocomplete="off" autocapitalize="off" ' +
         'autocorrect="off" spellcheck="false" placeholder="拼写">' +
@@ -454,6 +459,13 @@ function bindChips(){
     });
   });
 }
+function updateDual(chip, i){
+  var d = chip && chip.querySelector(".dual");
+  if (!d) return;
+  var w = (st.write || {})[i] === 1;
+  var r = (st.say || {})[i] === 1;
+  d.innerHTML = '<b class="' + (w ? "on" : "") + '">写</b><b class="' + (r ? "on" : "") + '">读</b>';
+}
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 function norm2(t){ return String(t||"").toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim(); }
 function bestMatch(alts, target){
@@ -487,6 +499,9 @@ function speakToFill(i, btn){
       chip.appendChild(h);
     }
     checkWrite(i, heard, inp);
+    st.say = st.say || {};
+    st.say[i] = (norm2(heard) === norm2(x.w)) ? 1 : 0;
+    save(); updateDual(chip, i); updateSummary();
   };
   rec.onerror = function(){ finish(); recordFallback(i, btn, x); };
   rec.onend = finish;
@@ -514,6 +529,14 @@ function recordFallback(i, btn, x){
       var tip = document.createElement("span");
       tip.className = "heard"; tip.textContent = "回放对比：" + x.w;
       chip.appendChild(tip);
+      var ok = document.createElement("button"); ok.className = "mic ok"; ok.textContent = "读对✓";
+      var no = document.createElement("button"); no.className = "mic no"; no.textContent = "读错✗";
+      var mark = function(v){ st.say = st.say || {}; st.say[i] = v; save();
+        ok.remove(); no.remove(); tip.textContent = "回放对比：" + x.w + (v ? " ✓" : " ✗");
+        updateDual(chip, i); updateSummary(); };
+      ok.onclick = function(e){ e.stopPropagation(); mark(1); };
+      no.onclick = function(e){ e.stopPropagation(); mark(0); };
+      chip.appendChild(ok); chip.appendChild(no);
     };
     mr.start();
     setTimeout(function(){ mr.stop(); }, 2500);
@@ -538,6 +561,7 @@ function checkWrite(i, typed, inp){
   chip.classList.add("judged");
   chip.removeChild(inp);
   chip.insertAdjacentHTML("beforeend", fb);
+  updateDual(chip, i);
   renderBad(info.n);
   updateSummary();
 }
@@ -554,10 +578,14 @@ function summaryText(){
 }
 function updateSummary(){
   var s = summaryText(), el = document.getElementById("note");
-  if (st.dir === "write"){
-    el.textContent = "默写进度 " + s.done + "/" + s.total + " ｜ 全对 " + s.ok +
-      " ｜ 差一点 " + s.near + " ｜ 错 " + s.bad;
-  }
+  if (st.dir !== "write") return;
+  var sOk = 0, both = 0;
+  todayIdx().forEach(function(i){
+    if ((st.say || {})[i] === 1) sOk++;
+    if ((st.write || {})[i] === 1 && (st.say || {})[i] === 1) both++;
+  });
+  el.textContent = "默写 " + s.done + "/" + s.total + " ｜ 写对 " + s.ok + " ｜ 读对 " + sOk +
+    " ｜ 写读都对 " + both + " ｜ 差一点 " + s.near + " ｜ 错 " + s.bad;
 }
 
 function judge(i, v){
