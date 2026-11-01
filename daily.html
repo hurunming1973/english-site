@@ -253,7 +253,11 @@ function render(){
   if (info.mode === "before"){
     document.getElementById("title").textContent = "还没开始";
     sub.textContent = "距离 11 月 2 日（第 1 天）还有 " + (-info.days) + " 天";
-    el.innerHTML = '<div class="card"><div class="note">先做两件事：① 把必修一 349 个词过一遍“见词知义”；② 每天读一段英语，找找语感。</div></div>';
+    el.innerHTML = '<div class="card">' +
+      '<div class="note">计划从 11 月 2 日开始。等不及可以先试学第 1 天——那 10 个词明天还是它们，等于多复习一遍。</div>' +
+      '<div class="row" style="margin-top:12px">' +
+        '<button class="primary" onclick="location.search=\'?d=1\'">先试学第 1 天 ›</button>' +
+      '</div></div>';
     btn.disabled = true; updateKPI(); return;
   }
   if (info.mode === "after"){
@@ -295,6 +299,7 @@ function render(){
   el.innerHTML = html;
   if (st.dir === "write") { note.textContent = "默写模式：看中文拼英文，回车判分。大小写、空格、标点都不算错；差 1–2 个字母算“差一点”。"; }
   else { note.textContent = "今天 " + total + " 词次。先回忆，再点开核对，然后点 ✓ / ✗ 判定。"; }
+  if (force) { note.innerHTML = note.textContent + ' ｜ <a href="daily.html" style="color:#6b7280;text-decoration:underline">退出预览</a>'; }
   bindChips();
   bindStory();
   renderBad(n);
