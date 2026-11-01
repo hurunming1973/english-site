@@ -549,6 +549,7 @@ function loadBatch(b){
   return AUD.busy[b];
 }
 function playClip(i, text){
+  audCtx();              /* 必须在用户手势里创建/唤醒，否则解码会一直挂起 */
   var b = bname(i);
   if (AUD.failed[b]) { say(text, 0.85); return; }
   loadIndex().then(function(j){
